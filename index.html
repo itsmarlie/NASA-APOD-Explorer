@@ -562,7 +562,39 @@ document.getElementById('chat-input').addEventListener('keydown', e => {
 });
 
 /* ── INIT ── */
-loadApod();
+async function loadApod() {
+  try {
+    const cached = localStorage.getItem("apod");
+
+    if (cached) {
+      renderApod(JSON.parse(cached));
+      return;
+    }
+
+    const API_KEY = "DEMO_KEY"; // replace with your own key for best results
+
+    const res = await fetch(
+      `https://api.nasa.gov/planetary/apod?api_key=${API_KEY}`
+    );
+
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+    const data = await res.json();
+
+    // Save to cache (prevents 429 on refresh)
+    localStorage.setItem("apod", JSON.stringify(data));
+
+    renderApod(data);
+
+  } catch (e) {
+    document.getElementById('apod-title').textContent =
+      "Could not load today's image.";
+
+    showError("Failed to fetch APOD data. Try again later.");
+    console.error(e);
+  }
+}
+
 </script>
 
 </body>
