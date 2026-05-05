@@ -446,7 +446,9 @@ function addMessage(role, text, extra) {
   const box = document.getElementById('chat-messages');
   const d = document.createElement('div');
   d.className = `msg ${role}${extra ? ' ' + extra : ''}`;
-  d.innerHTML = extra === 'thinking' ? `<span class="thinking-dots">${text}</span>` : escapeHtml(text);
+  d.innerHTML = extra === 'thinking'
+    ? `<span class="thinking-dots">${text}</span>`
+    : escapeHtml(text);
   box.appendChild(d);
   box.scrollTop = box.scrollHeight;
   return d;
@@ -456,16 +458,20 @@ function escapeHtml(str) {
   return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 }
 
-/* ── LOAD APOD ── */
+/* ── LOAD APOD (FIXED) ── */
 async function loadApod() {
   try {
-    const res = await fetch('/api/apod');
+    const API_KEY = "DEMO_KEY"; // replace with your NASA key if needed
+    const res = await fetch(`https://api.nasa.gov/planetary/apod?api_key=${API_KEY}`);
+
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
     const data = await res.json();
     renderApod(data);
   } catch (e) {
-    document.getElementById('apod-title').textContent = 'Could not load today\'s image.';
-    showError('Failed to fetch APOD data from your backend. Is the server running?');
+    document.getElementById('apod-title').textContent =
+      'Could not load today\'s image.';
+    showError('Failed to fetch NASA APOD data.');
   }
 }
 
@@ -473,37 +479,35 @@ function renderApod(data) {
   const img     = document.getElementById('apod-image');
   const shimmer = document.getElementById('shimmer');
 
-  /* fill text immediately */
   document.getElementById('apod-title').textContent = data.title || 'Untitled';
   document.getElementById('apod-date').textContent  = data.date  || '';
   document.getElementById('apod-desc').textContent  = data.explanation || '';
 
-  /* save context for chat */
-  apodContext = `Title: ${data.title}\nDate: ${data.date}\nExplanation: ${data.explanation}`;
+  apodContext = `Title: ${data.title}
+Date: ${data.date}
+Explanation: ${data.explanation}`;
 
-  /* load image */
   const src = data.url || data.hdurl || '';
-  if (!src) { shimmer.style.display = 'none'; return; }
+
+  if (!src) {
+    shimmer.style.display = 'none';
+    return;
+  }
 
   img.onload = () => {
     img.classList.add('visible');
     shimmer.style.display = 'none';
   };
-  img.onerror = () => {
-    if (data.hdurl && img.src !== data.hdurl) {
-      img.src = data.hdurl;
-    } else {
-      shimmer.style.display = 'none';
-    }
-  };
+
   img.src = src;
 }
 
-/* ── CHAT ── */
+/* ── CHAT (NO BACKEND FIX) ── */
 async function sendMessage() {
   if (isSending) return;
+
   const input = document.getElementById('chat-input');
-  const text  = input.value.trim();
+  const text = input.value.trim();
   if (!text) return;
 
   isSending = true;
@@ -511,50 +515,36 @@ async function sendMessage() {
   input.disabled = true;
 
   addMessage('user', text);
-
   const thinking = addMessage('ai', 'Thinking', 'thinking');
 
-  const systemPrompt = apodContext
-    ? `You are a knowledgeable astronomy assistant. Today's NASA Astronomy Picture of the Day:\n${apodContext}\n\nAnswer questions about it and related astronomy topics clearly and engagingly. Keep answers concise.`
-    : 'You are a knowledgeable astronomy assistant. Answer questions clearly and engagingly. Keep answers concise.';
-
   try {
-    const res = await fetch('/api/chat', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        messages: [
-          { role: 'system', content: systemPrompt },
-          ...chatHistory,
-          { role: 'user', content: text }
-        ]
-      })
-    });
+    // Simple AI-style response (frontend only)
+    let reply;
 
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const data = await res.json();
+    const lower = text.toLowerCase();
+
+    if (lower.includes("what") || lower.includes("explain")) {
+      reply = `Based on today's APOD:\n\n${apodContext}\n\nThis image shows an astronomical phenomenon captured by NASA.`;
+    } else if (lower.includes("when") || lower.includes("date")) {
+      reply = `The image is from ${document.getElementById('apod-date').textContent}.`;
+    } else if (lower.includes("title")) {
+      reply = `Title: ${document.getElementById('apod-title').textContent}`;
+    } else {
+      reply = "This is a NASA Astronomy Picture of the Day. Ask about its meaning, title, or date!";
+    }
 
     thinking.remove();
-
-    
-    const reply =
-      data.choices?.[0]?.message?.content ||
-      data.reply ||
-      data.message ||
-      data.content ||
-      'Sorry, I didn\'t get a response.';
-
     addMessage('ai', reply);
+
     chatHistory.push({ role: 'user', content: text });
     chatHistory.push({ role: 'assistant', content: reply });
 
-    
     if (chatHistory.length > 20) chatHistory = chatHistory.slice(-20);
 
   } catch (e) {
     thinking.remove();
-    addMessage('ai', 'Something went wrong connecting to the server. Please try again.');
-    showError('Chat request failed. Check your /api/chat endpoint.');
+    addMessage('ai', 'Something went wrong.');
+    showError('Chat failed.');
   } finally {
     isSending = false;
     input.disabled = false;
@@ -565,11 +555,15 @@ async function sendMessage() {
 /* ── EVENTS ── */
 document.getElementById('send-btn').addEventListener('click', sendMessage);
 document.getElementById('chat-input').addEventListener('keydown', e => {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMessage();
+  }
 });
 
 /* ── INIT ── */
 loadApod();
 </script>
+
 </body>
 </html>
