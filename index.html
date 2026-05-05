@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NASA APOD · AI Explorer</title>
+  
+  <link href="[fonts.googleapis.com](https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;600&family=JetBrains+Mono:wght@300;400&family=Lato:wght@300;400&display=swap)" rel="stylesheet" />
+  <style>
+  
+    :root {
+      --bg-deep: #03080F;
+      --bg-mid: #071220;
+      --bg-card: rgba(8, 20, 40, 0.72);
+      --glass-border: rgba(120, 160, 220, 0.13);
+      --accent: #C8A96E;
+      --accent-dim: rgba(200, 169, 110, 0.18);
+      --star-white: #E6EDF8;
+      --text-main: #D8E4F4;
+      --text-muted: #6A85A8;
+      --text-dim: #3A4F6E;
+      --ai-bubble: rgba(12, 28, 55, 0.85);
+      --user-bubble: rgba(200, 169, 110, 0.14);
+      --radius-lg: 16px;
+      --radius-md: 10px;
+    }
+
+    *,*::before,*::after {
+      box-sizing:border-box;margin:0;padding:0;
+    }
+    html{scroll-behavior:smooth;}
+    body{
+      background:var(--bg-deep);color:var(--text-main);
+      font-family:'Lato',sans-serif;font-weight:300;
+      min-height:100vh;overflow-x:hidden;
+    }
+    #starfield,#nebula{position:fixed;inset:0;z-index:0;pointer-events:none;}
+    /* ...rest of your CSS remains unchanged... */
+  </style>
+</head>
+
+<body>
+  <div id="starfield"></div>
+  <div id="nebula"></div>
+
+  <div class="page">
+    <header>
+      <p class="header-eyebrow">Daily Discovery</p>
+      <h1>NASA <span>APOD</span> Explorer</h1>
+      <div class="header-rule"></div>
+    </header>
+
+    <div class="apod-card" id="apod-card">
+      <div id="status-overlay">
+        <div class="orbit"></div>
+        <span>Reaching into the cosmos…</span>
+      </div>
+
+      <div id="apod-body" style="display:none;">
+        <div class="apod-img-wrap" id="apod-img-wrap">
+          <img id="apod-image" alt="Astronomy Picture of the Day" />
+          <div class="img-shimmer"></div>
+          <div class="video-notice" id="video-notice" style="display:none;">
+            <div class="play-icon">▶</div>
+            <p>Today's APOD is a video</p>
+            <a id="video-link" href="#" target="_blank" rel="noopener">Watch on NASA ↗</a>
+          </div>
+        </div>
+
+        <div class="apod-info">
+          <div class="apod-meta">
+            <div id="apod-title">—</div>
+            <div id="apod-date">—</div>
+          </div>
+          <div class="apod-desc-wrap" id="desc-wrap">
+            <p id="apod-desc"></p>
+          </div>
+          <button id="read-more" onclick="toggleDesc()">+ read more</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="chat-card">
+      <div class="chat-header">
+        <div class="chat-indicator"></div>
+        <span class="chat-header-label">AI Astronomer · Powered by Groq</span>
+      </div>
+
+      <div id="chat-messages">
+        <div class="msg ai">Loading today's image — then ask me anything about it!</div>
+      </div>
+
+      <div id="suggestions">
+        <button class="sug-btn" onclick="useSug(this)">What am I looking at?</button>
+        <button class="sug-btn" onclick="useSug(this)">How far away is this?</button>
+        <button class="sug-btn" onclick="useSug(this)">What makes this special?</button>
+        <button class="sug-btn" onclick="useSug(this)">Give me a wild fact</button>
+        <button class="sug-btn" onclick="useSug(this)">Could humans ever visit?</button>
+      </div>
+
+      <div class="chat-input-row">
+        <input
+          type="text"
+          id="chat-input"
+          placeholder="Ask about today's astronomy picture…"
+          autocomplete="off"
+        />
+        <button id="send-btn" onclick="sendMessage()">
+          Send <span class="arrow">↗</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    /* ====== Configuration ====== */
+    const NASA_KEY = "YOUR_NASA_KEY_HERE"; 
+    const GROQ_KEY = "YOUR_GROQ_KEY_HERE";
+    const GROQ_MODEL = "llama-3.1-8b-instant";
+    const GROQ_URL = "[api.groq.com](https://api.groq.com/openai/v1/chat/completions)";
+    const NASA_URL = `[api.nasa.gov](https://api.nasa.gov/planetary/apod?api_key=${NASA_KEY})`;
+
+    let apodData = null;
+    let chatHistory = [];
+    let descExpanded = false;
+
+    /* ====== Background Stars ====== */
+    (function buildStars() {
+      const container = document.getElementById('starfield');
+      const count = 180;
+      for (let i = 0; i < count; i++) {
+        const s = document.createElement('div');
+        s.className = 'star';
+        const size = Math.random() * 2 + 0.6;
+        s.style.cssText = `
+          width:${size}px;height:${size}px;
+          top:${Math.random()*100}%;left:${Math.random()*100}%;
+          --dur:${(Math.random()*4+3).toFixed(1)}s;
+          --delay:${(Math.random()*6).toFixed(1)}s;
+          --peak:${(Math.random()*0.6+0.2).toFixed(2)};
+        `;
+        container.appendChild(s);
+      }
+    })();
+
+    /* ====== Description Toggle ====== */
+    function toggleDesc() {
+      descExpanded = !descExpanded;
+      const desc = document.getElementById('apod-desc');
+      const wrap = document.getElementById('desc-wrap');
+      const btn = document.getElementById('read-more');
+      desc.classList.toggle('expanded', descExpanded);
+      wrap.classList.toggle('expanded', descExpanded);
+      btn.textContent = descExpanded ? '− show less' : '+ read more';
+    }
+
+    /* ====== Fetch NASA APOD ====== */
+    async function fetchAPOD() {
+      try {
+        const res = await fetch(NASA_URL);
+        if (!res.ok) throw new Error('NASA API error');
+        const data = await res.json();
+        apodData = data;
+        renderAPOD(data);
+      } catch (err) {
+        document.getElementById('status-overlay').innerHTML =
+          '<span style="color:#E55;">❌ Failed to load NASA data. Check your API key or connection.</span>';
+      }
+    }
+
+    function renderAPOD(data) {
+      document.getElementById('status-overlay').style.display = 'none';
+      document.getElementById('apod-body').style.display = 'block';
+      document.getElementById('apod-title').textContent = data.title;
+      document.getElementById('apod-date').textContent = data.date;
+      document.getElementById('apod-desc').textContent = data.explanation;
+
+      if (data.media_type === 'image') {
+        const img = document.getElementById('apod-image');
+        img.onload = () => img.classList.add('loaded');
+        img.src = data.hdurl || data.url;
+        document.getElementById('video-notice').style.display = 'none';
+      } else {
+        document.getElementById('apod-image').style.display = 'none';
+        const vn = document.getElementById('video-notice');
+        vn.style.display = 'flex';
+        document.getElementById('video-link').href = data.url;
+        document.getElementById('apod-img-wrap').style.aspectRatio = '16/7';
+      }
+
+      const firstMsg = document.querySelector('#chat-messages .msg.ai');
+      if (firstMsg) {
+        firstMsg.textContent = `"${data.title}" is loaded. Ask me anything — I'm here to explore the cosmos with you!`;
+      }
+    }
+
+    /* ====== Chat Functions ====== */
+    function useSug(btn) {
+      document.getElementById('chat-input').value = btn.textContent;
+      sendMessage();
+    }
+
+    function addMessage(role, text) {
+      const box = document.getElementById('chat-messages');
+      const div = document.createElement('div');
+      div.className = `msg ${role}`;
+      div.textContent = text;
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+      return div;
+    }
+
+    function addThinking() {
+      const box = document.getElementById('chat-messages');
+      const div = document.createElement('div');
+      div.className = 'msg thinking';
+      div.innerHTML = '<div class="dot"></div><div class="dot"></div><div class="dot"></div>';
+      box.appendChild(div);
+      box.scrollTop = box.scrollHeight;
+      return div;
+    }
+
+    async function sendMessage() {
+      const input = document.getElementById('chat-input');
+      const btn = document.getElementById('send-btn');
+      const text = input.value.trim();
+      if (!text || btn.disabled) return;
+
+      input.value = '';
+      btn.disabled = true;
+      addMessage('user', text);
+      chatHistory.push({ role: 'user', content: text });
+
+      const thinking = addThinking();
+
+      const systemContent = apodData
+        ? `You are an enthusiastic and knowledgeable astronomy guide helping a user explore NASA's Astronomy Picture of the Day.
+
+Today's picture details:
+- Title: ${apodData.title}
+- Date: ${apodData.date}
+- Description: ${apodData.explanation}
+- Media type: ${apodData.media_type}
+${apodData.copyright ? `- Credit: ${apodData.copyright}` : ''}
+
+Respond with concise, engaging and accurate astronomy insights about this image.`
+        : `You are an astronomy guide. The NASA image is still loading — answer general astronomy questions kindly.`;
+
+      try {
+        const res = await fetch(GROQ_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${GROQ_KEY}`
+          },
+          body: JSON.stringify({
+            model: GROQ_MODEL,
+            max_tokens: 512,
+            messages: [
+              { role: 'system', content: systemContent },
+              ...chatHistory
+            ]
+          })
+        });
+
+        if (!res.ok) throw new Error('Groq API error');
+        const data = await res.json();
+        const reply = data.choices?.[0]?.message?.content || 'No response received.';
+        thinking.remove();
+        addMessage('ai', reply);
+        chatHistory.push({ role: 'assistant', content: reply });
+      } catch (err) {
+        thinking.remove();
+        addMessage('ai', `⚠️ ${err.message}`);
+        chatHistory.pop();
+      }
+
+      btn.disabled = false;
+      input.focus();
+    }
+
+    document.getElementById('chat-input').addEventListener('keydown', e => {
+      if (e.key === 'Enter') sendMessage();
+    });
+
+    fetchAPOD();
+  </script>
+</body>
+</html>
