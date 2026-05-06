@@ -17,7 +17,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname, "../public")));
 
 /* =========================
-   NASA APOD PROXY (SAFE)
+   NASA APOD PROXY
 ========================= */
 app.get("/api/apod", async (req, res) => {
   try {
@@ -48,16 +48,16 @@ app.post("/api/chat", async (req, res) => {
   try {
     const messages = req.body.messages;
 
-    // Validate messages array exists and is not empty
+    
     if (!Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({ error: "messages array is required" });
     }
 
-    // Separate system messages from the rest (Groq requires system first)
+    
     const systemMessages = messages.filter(m => m.role === "system");
     const nonSystemMessages = messages.filter(m => m.role !== "system");
 
-    // Rebuild with system message(s) first, then the rest
+  
     const orderedMessages = [...systemMessages, ...nonSystemMessages];
 
     const response = await fetch(
