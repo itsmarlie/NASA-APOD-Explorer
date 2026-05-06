@@ -11,8 +11,10 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
+// Serve your frontend HTML
 app.use(express.static(path.join(__dirname, "../public")));
 
+// NASA APOD proxy
 app.get("/api/apod", async (req, res) => {
   try {
     const key = process.env.NASA_API_KEY;
@@ -33,6 +35,7 @@ app.get("/api/apod", async (req, res) => {
   }
 });
 
+// Groq chat proxy
 app.post("/api/chat", async (req, res) => {
   try {
     const messages = req.body.messages;
@@ -64,7 +67,9 @@ app.post("/api/chat", async (req, res) => {
     if (!response.ok) {
       const errData = await response.json();
       console.error("GROQ ERROR:", errData);
-      return res.status(response.status).json({ error: "Groq request failed", detail: errData });
+      return res
+        .status(response.status)
+        .json({ error: "Groq request failed", detail: errData });
     }
 
     const data = await response.json();
