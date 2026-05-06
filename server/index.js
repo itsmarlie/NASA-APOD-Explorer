@@ -11,14 +11,8 @@ const PORT = process.env.PORT || 3000;
 app.use(cors());
 app.use(express.json());
 
-/* =========================
-   SERVE FRONTEND
-========================= */
 app.use(express.static(path.join(__dirname, "../public")));
 
-/* =========================
-   NASA APOD PROXY
-========================= */
 app.get("/api/apod", async (req, res) => {
   try {
     const key = process.env.NASA_API_KEY;
@@ -30,9 +24,7 @@ app.get("/api/apod", async (req, res) => {
     const response = await fetch(url);
     const data = await response.json();
 
-    if (!response.ok) {
-      return res.status(500).json(data);
-    }
+    if (!response.ok) return res.status(500).json(data);
 
     res.json(data);
   } catch (err) {
@@ -41,23 +33,16 @@ app.get("/api/apod", async (req, res) => {
   }
 });
 
-/* =========================
-   GROQ CHAT
-========================= */
 app.post("/api/chat", async (req, res) => {
   try {
     const messages = req.body.messages;
 
-    
     if (!Array.isArray(messages) || messages.length === 0) {
       return res.status(400).json({ error: "messages array is required" });
     }
 
-    
     const systemMessages = messages.filter(m => m.role === "system");
     const nonSystemMessages = messages.filter(m => m.role !== "system");
-
-  
     const orderedMessages = [...systemMessages, ...nonSystemMessages];
 
     const response = await fetch(
@@ -91,5 +76,5 @@ app.post("/api/chat", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`🚀 Server running at http://localhost:${PORT}`);
+  console.log(`Server running at http://localhost:${PORT}`);
 });
