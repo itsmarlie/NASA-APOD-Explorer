@@ -429,8 +429,7 @@
   sf.appendChild(frag);
 })();
 
-/* ── CONFIG ── */
-const API_BASE = '';  // leave empty since frontend is served by same Express server
+const API_BASE = '';
 
 /* ── STATE ── */
 let chatHistory = [];
@@ -458,7 +457,10 @@ function addMessage(role, text, extra) {
 }
 
 function escapeHtml(str) {
-  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
 }
 
 function renderApod(data) {
@@ -472,6 +474,7 @@ function renderApod(data) {
   apodContext = `Title: ${data.title}\nDate: ${data.date}\nExplanation: ${data.explanation}`;
 
   const src = data.hdurl || data.url || '';
+
   if (!src || data.media_type === 'video') {
     shimmer.style.display = 'none';
     img.style.display = 'none';
@@ -495,7 +498,7 @@ async function loadApod() {
     renderApod(data);
   } catch (e) {
     document.getElementById('apod-title').textContent = "Could not load today's image.";
-    showError('Failed to fetch NASA APOD data. Is the server running?');
+    showError('Failed to fetch NASA APOD data.');
     console.error(e);
   }
 }
